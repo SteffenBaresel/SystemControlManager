@@ -42,7 +42,7 @@ public class SystemControlManager {
             Properties props = getConfiguration(args[0]);
             String from = props.getProperty("mail.from");
             Class.forName("org.postgresql.Driver");
-            
+            String temp="LKHduguge";
             /* Get Mail Configuration */
             
             String hostM = null; int portM = 0; String userM = null; String passM = null; String footM = null;
@@ -96,7 +96,8 @@ public class SystemControlManager {
                 ResultSet rsLt = psLt.executeQuery();
                 while ( rsLt.next() ) {
                     /* initial variables */
-                    String host = rsLt.getString( 1 ); String serv = rsLt.getString( 2 ); String inst = rsLt.getString( 3 ); Integer role = rsLt.getInt( 4 ); String uuid = rsLt.getString( 5 ); String comment = rsLt.getString( 6 ); String header = rsLt.getString( 7 ); String text = rsLt.getString( 8 ); long ts = rsLt.getLong( 9 ); String user = null; String to = ""; Integer mailid = rsLt.getInt( 10 ); Integer cstate = rsLt.getInt( 11 ); Long t1 = rsLt.getLong( 12 ); Long t2 = rsLt.getLong( 13 ); Integer mtypid = rsLt.getInt( 14 );
+                    String host = rsLt.getString( 1 ); String serv = rsLt.getString( 2 ); String inst = rsLt.getString( 3 ); Integer role = rsLt.getInt( 4 ); String uuid = rsLt.getString( 5 ); String comment = rsLt.getString( 6 ); String header = rsLt.getString( 7 ); String text = rsLt.getString( 8 ); long ts = rsLt.getLong( 9 ); String sts = rsLt.getString( 9 ); String user = null; String to = ""; Integer mailid = rsLt.getInt( 10 ); Integer cstate = rsLt.getInt( 11 ); Long t1 = rsLt.getLong( 12 ); Long t2 = rsLt.getLong( 13 ); Integer mtypid = rsLt.getInt( 14 );
+                    /* check if double */
                     /* get full username */
                     Connection cnR = DriverManager.getConnection(props.getProperty("url.repository"));
                     if (!"system".equals(uuid)) {
@@ -133,7 +134,11 @@ public class SystemControlManager {
                         
                         try {
                             /* send mail */
-                            send(hostM,portM,userM,passM,to,"",from,encodeSubject(mailsubject),mailtext);
+                            String exec = encodeString("" + mailsubject + "-" + mailtext + "-" + to + "");
+                            if( !temp.equals(exec) ) {
+                                send(hostM,portM,userM,passM,to,"",from,encodeSubject(mailsubject),mailtext);
+                            }
+                            temp = exec;
                         } catch (NoSuchProviderException ex) {
                             Logger.getLogger(SystemControlManager.class.getName()).log(Level.SEVERE, null, ex);
                         } catch (MessagingException ex) {
@@ -152,6 +157,7 @@ public class SystemControlManager {
                     PreparedStatement psD = cn.prepareStatement("UPDATE monitoring_mailing SET DONE=true WHERE mailid=?");
                     psD.setInt(1, mailid);
                     psD.executeUpdate();
+                    /* Fill temp array with current values */
                 }
                 /* Close Connection */
                 cn.close();
