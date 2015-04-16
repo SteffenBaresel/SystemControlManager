@@ -21,14 +21,21 @@ import java.text.SimpleDateFormat;
 import java.util.Locale;
 import java.util.Properties;
 import java.util.TimeZone;
+import javax.activation.DataHandler;
+import javax.activation.DataSource;
+import javax.activation.FileDataSource;
 import javax.mail.Address;
+import javax.mail.BodyPart;
 import javax.mail.MessagingException;
+import javax.mail.Multipart;
 import javax.mail.NoSuchProviderException;
 import javax.mail.Session;
 import javax.mail.Transport;
 import javax.mail.internet.AddressException;
 import javax.mail.internet.InternetAddress;
+import javax.mail.internet.MimeBodyPart;
 import javax.mail.internet.MimeMessage;
+import javax.mail.internet.MimeMultipart;
 import javax.naming.NamingException;
 import javax.net.ssl.HttpsURLConnection;
 
@@ -109,6 +116,47 @@ public class Basics {
         message.setSubject(subject);
         
         message.setText(text, "utf-8", "html");
+        
+        transport.sendMessage(message, message.getAllRecipients());
+        
+        transport.close();
+    }
+    
+    static public void sendFile(String host, Integer port, String user, String pass, String to, String cc, String from, String subject, String text, String File, String Filename) throws FileNotFoundException, IOException, NoSuchProviderException, MessagingException, NamingException, SQLException {
+        Properties mail=new Properties();
+        mail.put("mail.smtp.auth", "true");
+        mail.put("mail.smtp.starttls.enable", "true");
+        mail.put("mail.from", from);
+        
+        Session session=Session.getInstance(mail);
+        Transport transport=session.getTransport("smtp");
+        transport.connect(host, port, user, pass);
+        
+        Address[] addresses=InternetAddress.parse(to);
+        Address[] ccaddresses=InternetAddress.parse(cc);
+        
+        MimeMessage message = new MimeMessage(session);
+        message.setFrom();
+        message.setRecipients(MimeMessage.RecipientType.TO, addresses);
+        message.addRecipients(MimeMessage.RecipientType.CC, ccaddresses);
+        message.setSubject(subject);
+        
+        BodyPart messageBodyPart = new MimeBodyPart();
+        
+        //messageBodyPart.setText(text, "utf-8", "html");
+        messageBodyPart.setContent(text, "text/html");
+        
+        Multipart multipart = new MimeMultipart();
+        multipart.addBodyPart(messageBodyPart);
+        messageBodyPart = new MimeBodyPart();
+        String file = File;
+        String filename = Filename;
+        DataSource source = new FileDataSource(file);
+        messageBodyPart.setDataHandler(new DataHandler(source));
+        messageBodyPart.setFileName(filename);
+        multipart.addBodyPart(messageBodyPart);
+        
+        message.setContent(multipart);
         
         transport.sendMessage(message, message.getAllRecipients());
         

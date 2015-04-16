@@ -63,7 +63,7 @@ public class Controller {
             BufferedWriter log = new BufferedWriter(fstream);
             
             if ("on".equals(props.getProperty("debug"))) {
-                log.write("[" + ctime1 + "] Dienst: System Control Manager gestartet\n");
+                log.write("[" + ctime1 + "] Dienst: SystemLocal gestartet\n");
                 log.write("[" + ctime1 + "] Author: Steffen Baresel 2015\n");
                 log.write("[" + ctime1 + "] Konfiguration: Geladen\n");
                 log.write("[" + ctime1 + "] Konfiguration: debug.file = " + props.getProperty("debug.logfile") + "\n");
@@ -115,7 +115,7 @@ public class Controller {
                                 to+= rsMR.getString( 1 ) + ",";
                             } else {
                                 try {
-                                    Basics.send(hostM,portM,userM,passM,props.getProperty("mail.admin"),"",from,"++ SystemControlManager ++","<html><head></head><body>Die angegebene E-Mail Adresse ist nicht valide.<br>E-Mail:" + rsMR.getString( 1 ) + "</body></html>");
+                                    Basics.send(hostM,portM,userM,passM,props.getProperty("mail.admin"),"",from,"++ SystemLocal ++","<html><head></head><body>Die angegebene E-Mail Adresse ist nicht valide.<br>E-Mail:" + rsMR.getString( 1 ) + "</body></html>");
                                 } catch (NoSuchProviderException ex) {
                                     Logger.getLogger(Controller.class.getName()).log(Level.SEVERE, null, ex);
                                 } catch (MessagingException ex) {
@@ -124,7 +124,7 @@ public class Controller {
                                     Logger.getLogger(Controller.class.getName()).log(Level.SEVERE, null, ex);
                                 }
                                 if ("on".equals(props.getProperty("debug"))) {
-                                    log.write("[" + ctime2 + "] ++ SystemControlManager ++ Die angegebene E-Mail Adresse ist nicht valide: " + rsMR.getString( 1 ) + "\n");
+                                    log.write("[" + ctime2 + "] ++ SystemLocal ++ Die angegebene E-Mail Adresse ist nicht valide: " + rsMR.getString( 1 ) + "\n");
                                     log.flush();
                                 }
                             }
@@ -240,6 +240,7 @@ public class Controller {
                     
                     /* compare dates */
                     
+                    Integer c=1;
                     if (ctime2 > datestart) {
                         try {
                             if ("on".equals(props.getProperty("debug"))) {
@@ -273,8 +274,75 @@ public class Controller {
                             String json = object.getString("MESSAGE");
                             
                             if ("on".equals(props.getProperty("debug"))) {
-                                log.write("[" + ctime2 + "] Get MESSAGE: " + json + "\n");
+                                log.write("[" + ctime2 + "] JSON Get 'MESSAGE': " + json + "\n");
                                 log.flush();
+                            }
+                            
+                            /* Send Mail with Report */
+                            String mail = object.getString("MAIL");
+                            String cunm = object.getString("CUNM");
+                            String file = Basics.decodeString(object.getString("FILE"));
+                            /* Define filename */
+                            if ("on".equals(props.getProperty("debug"))) {
+                                log.write("[" + ctime2 + "] File " + file + " \n");
+                                log.flush();
+                            }
+                            
+                            String filename = file.substring(file.lastIndexOf("/")+1);
+                            
+                            if ("on".equals(props.getProperty("debug"))) {
+                                log.write("[" + ctime2 + "] Filename " + filename + " \n");
+                                log.flush();
+                            }
+                            
+                            String sfrom = object.getString("FROM");
+                            String sto = object.getString("TO");
+                            if ( Basics.isValidEmailAddress(mail) ) {
+                                PreparedStatement psGMC = cnR.prepareStatement("SELECT decode(val,'base64') FROM config_gateway WHERE mod=encode('MAILAPI','base64') AND key=encode('HEADER','base64')");
+                                ResultSet rsGMC = psGMC.executeQuery();
+                                String mmhead="";
+                                if ( rsGMC.next() ) { mmhead = rsGMC.getString(1); }
+                                
+                                PreparedStatement psGMC2 = cnR.prepareStatement("SELECT decode(val,'base64') FROM config_gateway WHERE mod=encode('MAILAPI','base64') AND key=encode('FOOTER','base64')");
+                                ResultSet rsGMC2 = psGMC2.executeQuery();
+                                String mmfoot="";
+                                if ( rsGMC2.next() ) { mmfoot = rsGMC2.getString(1); }
+                                
+                                String mmsub = Basics.encodeSubject( "SIV.AG - Service Report vom " + sfrom + " bis " + sto);
+                                String mmtxt = Basics.encodeHtml( "<html><head></head><body><font face=Arial size=2>" + mmhead + "<br>nachfolgend erhalten Sie den aktuellen Service Report.<br><br>" + mmfoot + "</font></body></html>");
+                                try {
+                                    /* send mail */
+                                    Basics.sendFile(hostM,portM,userM,passM,mail,"",from,mmsub,mmtxt,file,filename);                      
+                                } catch (NoSuchProviderException ex) {
+                                    Logger.getLogger(Controller.class.getName()).log(Level.SEVERE, null, ex);
+                                } catch (MessagingException ex) {
+                                    Logger.getLogger(Controller.class.getName()).log(Level.SEVERE, null, ex);
+                                } catch (NamingException ex) {
+                                    Logger.getLogger(Controller.class.getName()).log(Level.SEVERE, null, ex);
+                                }
+                            }
+                            
+                            /* Send Notification to Admin */
+                            if ( Basics.isValidEmailAddress(props.getProperty("mail.admin") ) ) {
+                                String mmsub = Basics.encodeSubject( "Ein Report wurde erstellt für " + Basics.decodeString(cunm) + " " + sfrom + " - " + sto + "");
+                                String file2 = "";
+                                if (file.matches("^[a-zA-Z]{1}:{1}.*")) {
+                                    file2 = file.replace("/", "\\");
+                                } else {
+                                    file2 = file;
+                                }
+                                String mmtxt = Basics.encodeHtml( "<html><head></head><body><font face=Arial size=2>Die Datei liegt auf dem AS unter '" + file2 + "'.</font></body></html>");
+                                
+                                try {
+                                    /* send mail */
+                                    Basics.send(hostM,portM,userM,passM,props.getProperty("mail.admin"),"",from,mmsub,mmtxt);                      
+                                } catch (NoSuchProviderException ex) {
+                                    Logger.getLogger(Controller.class.getName()).log(Level.SEVERE, null, ex);
+                                } catch (MessagingException ex) {
+                                    Logger.getLogger(Controller.class.getName()).log(Level.SEVERE, null, ex);
+                                } catch (NamingException ex) {
+                                    Logger.getLogger(Controller.class.getName()).log(Level.SEVERE, null, ex);
+                                }
                             }
                             
                             /* debug */
@@ -282,12 +350,22 @@ public class Controller {
                                 log.write("[" + ctime2 + "] Job Scheduler: Executed " + function + " \n");
                                 log.flush();
                             }
+                            c=0;
                         } catch (Exception ex) {
                             Logger.getLogger(Controller.class.getName()).log(Level.SEVERE, null, ex);
                         }
                         
+                    } else {
+                        c=0;
                     }
                     
+                    if (c == 1) {
+                        if ("on".equals(props.getProperty("debug"))) {
+                            log.write("[" + ctime2 + "] Job Scheduler: Failed.\n");
+                            log.flush();
+                        }
+                    }
+                                      
                 }
                 /* Close Connections */
                 cnR.close();
@@ -298,7 +376,7 @@ public class Controller {
         
         } else {
             if ("on".equals(props.getProperty("debug"))) {
-                log.write("[" + ctime1 + "] ++ SystemControlManager ++ Die angegebenen E-Mail Adressen mail.from oder mail.admin sind nicht valide.\n");
+                log.write("[" + ctime1 + "] ++ SystemLocal ++ Die angegebenen E-Mail Adressen mail.from oder mail.admin sind nicht valide.\n");
                 log.flush();
             }
         }
